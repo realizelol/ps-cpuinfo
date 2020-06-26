@@ -1,6 +1,8 @@
 # Script to get CPU information
-# (c) 2019. Dimitri Delopoulos
-# v2.5, 03/03/2020
+# (c) 2018-2020. Dimitri Delopoulos
+# v2.5.1, 06/28/2020
+#
+# https://www.tenforums.com/drivers-hardware/106331-powershell-script-cpu-information-incl-cpuid.html
 
 <####### Release history #######
 Version 1.0 (19-Mar-2018)
@@ -43,8 +45,12 @@ Version 2.5 (03-Mar-2020)
 3. Fixed output of firmware data.
 
 Version 2.5.1 (28-Jun-2020)
-1. Added current bios version check via github api
-2. Added support for Windows 7/2008 R2
+1. Added current bios version check via github api.
+2. Added support for Windows 7/2008 R2.
+3. Trim zeros at CPUID so you'll get the real CPUID.
+4. Color current BIOS microcode state (green = newest / red = old one).
+5. Add pause to end of script.
+6. Added tenforums link to script.
 
 #>
 
