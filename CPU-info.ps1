@@ -52,22 +52,25 @@ Version 2.5.1 (26-Jun-2020)
 5. Add pause to end of script.
 6. Added tenforums link to script.
 
+Version 2.5.2 (26-Jun-2020)
+1. Fix apostroph in DATA type also some double quotes
+2. Add special symbol for copyright mark in version info
 #>
 
 # 'ProcessorType' value from: https://docs.microsoft.com/en-us/windows/desktop/CIMWin32Prov/win32-processor
 
-$CPU_Type = DATA {ConvertFrom-StringData -StringData @’
+$CPU_Type = DATA {ConvertFrom-StringData -StringData @'
 1 = Other
 2 = Unknown
 3 = Central Processor
 4 = Math Processor
 5 = DSP Processor
 6 = Video Processor
-‘@}
+'@}
 
 # 'Architecture' value from: https://docs.microsoft.com/en-us/windows/desktop/cimwin32prov/win32-processor
 
-$CPU_Architecture = DATA {ConvertFrom-StringData -StringData @’
+$CPU_Architecture = DATA {ConvertFrom-StringData -StringData @'
 0 = x86
 1 = MIPS
 2 = Alpha
@@ -75,11 +78,11 @@ $CPU_Architecture = DATA {ConvertFrom-StringData -StringData @’
 5 = ARM
 6 = ia64
 9 = x64
-‘@}
+'@}
 
 # 'Family' value from: http://schemas.dmtf.org/wbem/cim-html/2.51.0/CIM_ArchitectureCheck.html
 
-$CPU_Family = DATA {ConvertFrom-StringData -StringData @’
+$CPU_Family = DATA {ConvertFrom-StringData -StringData @'
 1 = Other
 2 = Unknown
 3 = 8086
@@ -296,11 +299,11 @@ $CPU_Family = DATA {ConvertFrom-StringData -StringData @’
 500 = Video Processor
 65534 = Reserved (For Future Special Purpose Assignment)
 65535 = Reserved (Un-initialized Flash Content - Hi)
-‘@}
+'@}
 
 # 'UpgradeMethod' value from: http://schemas.dmtf.org/wbem/cim-html/2.51.0/CIM_Processor.html
 
-$CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @’
+$CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @'
 1 = Other
 2 = Unknown
 3 = Daughter Board
@@ -361,10 +364,9 @@ $CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @’
 58 = Socket BGA1392
 59 = Socket BGA1510
 60 = Socket BGA1528
-‘@}
+'@}
 
-Write-Output "`nCPU-info [Version 2.5.1] © 2020 Dimitri Delopoulos - modded by realizelol"
-
+Write-Output "`nCPU-info [Version 2.5.2] $([char]169) 2020 Dimitri Delopoulos - modded by realizelol"
 
 # Change registry value if Windows is version 6.1 aka Windows 7
 # and Powershell Update info if version is 2.0 (default)
@@ -410,10 +412,10 @@ $PCModel = (Get-CimInstance -Class Win32_ComputerSystem).Model
 
 $CIMCPU = Get-CimInstance -Class CIM_Processor | Select-Object SystemName, Manufacturer, Name,
 Description, NumberOfCores, NumberOfLogicalProcessors, CurrentClockSpeed, SocketDesignation,
-@{L=”ProcessorType”;E={$CPU_Type["$($_.ProcessorType)"]}},
-@{L=”CPUFamily”;E={$CPU_Family["$($_.Family)"]}},
-@{L=”CPUArchitecture”;E={$CPU_Architecture["$($_.Architecture)"]}},
-@{L=”UpgradeMethod”;E={$CPU_UpgradeMethod["$($_.UpgradeMethod)"]}},
+@{L="ProcessorType";E={$CPU_Type["$($_.ProcessorType)"]}},
+@{L="CPUFamily";E={$CPU_Family["$($_.Family)"]}},
+@{L="CPUArchitecture";E={$CPU_Architecture["$($_.Architecture)"]}},
+@{L="UpgradeMethod";E={$CPU_UpgradeMethod["$($_.UpgradeMethod)"]}},
 @{L="CPUID"; E={$_.ProcessorID.substring(8,8).trimstart('0')}},
 @{L="DisplayFamily"; E={([String]::Format("{0:x2}", ([Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(1,1),16) +
                                                      [Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(2,1),16) +
