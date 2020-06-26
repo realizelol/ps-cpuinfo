@@ -41,11 +41,6 @@ Version 2.5 (03-Mar-2020)
 1. Fixed an issue with the detection of firmware type (BIOS/UEFI). Thanks to Mike (mta3006) for his help.
 2. Fixed microcode loader and disclaimer presentation algorithm.
 3. Fixed output of firmware data.
-
-Version 2.5.1 (28-Jun-2020)
-1. Added current bios version check via github api
-2. Added support for Windows 7/2008 R2
-
 #>
 
 # 'ProcessorType' value from: https://docs.microsoft.com/en-us/windows/desktop/CIMWin32Prov/win32-processor
@@ -357,48 +352,7 @@ $CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @’
 60 = Socket BGA1528
 ‘@}
 
-Write-Output "`nCPU-info [Version 2.5.1] © 2020 Dimitri Delopoulos - modded by realizelol"
-
-
-# Change registry value if Windows is version 6.1 aka Windows 7
-# and Powershell Update info if version is 2.0 (default)
-if ([System.Environment]::OSVersion.Version.Major -eq 6 -And [System.Environment]::OSVersion.Version.Minor -eq 1) {
-    $UpdateInfo = "Update Signature"
-    $PrevUpdateInfo = "Previous Update Signature"
-
-    # We need atleast PowerShell 3.0
-    if ((Get-Host).Version.Major -eq 2) {
-        # https://www.microsoft.com/en-us/download/details.aspx?id=54616
-        if ((Get-WmiObject Win32_OperatingSystem).OSArchitecture -eq "64-bit"){
-            Start-Process "https://download.microsoft.com/download/6/F/5/6F5FF66C-6775-42B0-86C4-47D41F2DA187/Win7AndW2K8R2-KB3191566-x64.zip"
-        } else {
-            Start-Process "https://download.microsoft.com/download/6/F/5/6F5FF66C-6775-42B0-86C4-47D41F2DA187/Win7-KB3191566-x86.zip"
-        }
-        Write-Output ""
-        Write-Output "Sorry you need a newer powershell version. Download will be started in your browser."
-        Write-Output "Afterwards do:"
-        Write-Output " 1) extract."
-        Write-Output " 2) install the MSU package - Win7AndW2K8R2-KB3191566-x64.msu - or - Win7-KB3191566-x86.msu -."
-        Write-Output " 3) reboot and start script again."
-        Write-Output ""
-        Write-Output "Note: If the link is down search for `"Windows Management Framework 5.1`""
-        Write-Output ""
-        exit
-    }
-} else {
-    $UpdateInfo = "Update Revision"
-    $PrevUpdateInfo = "Previous Update Revision"
-
-    if ([System.Environment]::OSVersion.Version.Major -lt 6 `
-        -Or ([System.Environment]::OSVersion.Version.Major -eq 6 -And [System.Environment]::OSVersion.Version.Minor -eq 0)) {
-            Write-Output "`nSorry your Windows Version is not supported!"
-            Write-Output "You need atleast Windows 7 or Windows Server 2008 R2`n"
-            exit
-    }
-}
-
-# Set minimum powershell TLS Version to 1.2 (TLSv1.2)
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Write-Output "`nCPU-info [Version 2.5] © 2020 Dimitri Delopoulos"
 
 $PCModel = (Get-CimInstance -Class Win32_ComputerSystem).Model
 
@@ -408,7 +362,7 @@ Description, NumberOfCores, NumberOfLogicalProcessors, CurrentClockSpeed, Socket
 @{L=”CPUFamily”;E={$CPU_Family["$($_.Family)"]}},
 @{L=”CPUArchitecture”;E={$CPU_Architecture["$($_.Architecture)"]}},
 @{L=”UpgradeMethod”;E={$CPU_UpgradeMethod["$($_.UpgradeMethod)"]}},
-@{L="CPUID"; E={$_.ProcessorID.substring(8,8).trimstart('0')}},
+@{L="CPUID"; E={$_.ProcessorID.substring(8,8)}},
 @{L="DisplayFamily"; E={([String]::Format("{0:x2}", ([Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(1,1),16) +
                                                      [Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(2,1),16) +
                                                      [Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(5,1),16)))).ToUpper()}}, ### 0FFM0FMS (F+F+F)
@@ -438,31 +392,28 @@ $CPUInfo = [PSCustomObject]@{
 
 $CPUInfo
 
-# Find the system's firmware type - Method 1 not possible with Win7
-if ($env:Firmware_Type -eq "UEFI") { $FirmwareType = "UEFI" }
+# Find the system's firmware type
+$bcdeditOutput = & "$env:windir\System32\bcdedit.exe"
+if ($bcdeditOutput -like "*winload.efi*") { $FirmwareType = "UEFI" }
 else { $FirmwareType = "Legacy BIOS" }
 
-# Find the system's firmware type - Method 2
-if (!($FirmwareType)) {
-    $bcdeditOutput = & "$env:windir\System32\bcdedit.exe"
-    if ($bcdeditOutput -like "*winload.efi") { $FirmwareType = "UEFI" }
-    else { $FirmwareType = "Legacy BIOS" }
-}
+<# Find the system's firmware type - Method 2
+if ($env:Firmware_Type -eq "UEFI") { $FirmwareType = "UEFI" }
+else { $FirmwareType = "Legacy BIOS" }
+#>
 
 # Find the currently running CPU microcode revision
 $CPURegistryPath = "Registry::HKEY_LOCAL_MACHINE\HARDWARE\DESCRIPTION\System\CentralProcessor\0\"
 
-#$RunningMicrocode = (Get-ItemPropertyValue -Path $CPURegistryPath -Name "Update Revision")[0..4] -join ''
-$RunningMicrocode = ((Get-ItemProperty -Path $CPURegistryPath -Name "$UpdateInfo")."$UpdateInfo")[0..4] -join ''
+$RunningMicrocode = ((Get-ItemProperty -Path $CPURegistryPath)."Update Revision")[0..4] -join ''
 $RunningMicrocodeHEX = ([String]::Format("{0:x2}", [int]($RunningMicrocode.ToString()).TrimStart('0'))).ToUpper()
 
 # Find the BIOS/UEFI CPU microcode revision (not reliable for all devices)
-#$BIOSMicrocode = (Get-ItemPropertyValue -Path $CPURegistryPath -Name "Previous Update Revision")[0..4] -join ''
-$BIOSMicrocode = ((Get-ItemProperty -Path $CPURegistryPath -Name "$PrevUpdateInfo")."$PrevUpdateInfo")[0..4] -join ''
+$BIOSMicrocode = ((Get-ItemProperty -Path $CPURegistryPath)."Previous Update Revision")[0..4] -join ''
 $BIOSMicrocodeHEX = ([String]::Format("{0:x2}", [int]($BIOSMicrocode.ToString()).TrimStart('0'))).ToUpper()
 
 # Get the BIOS information
-$BIOSInfo = Get-CimInstance Win32_BIOS | Select-Object Name, Manufacturer, SerialNumber, ReleaseDate
+$BIOSInfo = Get-CimInstance Win32_BIOS | select Name, Manufacturer, SerialNumber, ReleaseDate
 
 # Decide if the the currently running microcode is loaded by the OS or by the firmware
 $OS = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -489,28 +440,12 @@ if ($RunningMicrocodeHEX -eq $BIOSMicrocodeHEX) {
     }
 }
 
-# Get current version
-$CPUIDAPI = (Get-CimInstance -Class CIM_Processor | Select-Object @{L="CPUID"; E={$_.ProcessorID.substring(8,8).trimstart('0')}}).CPUID
-$CPUMCAPI = Invoke-RestMethod https://api.github.com/repos/platomav/CPUMicrocodes/contents/Intel?ref=master
-$CPUMCAPIDate = [regex]::match(($CPUMCAPI | Select-String -Pattern "name.*$CPUIDAPI"),"_([0-9]*-[0-9]*-[0-9]*)_").Groups[1].Value
-$CPUMCAPIVersion = [regex]::match(($CPUMCAPI | Select-String -Pattern "name.*$CPUIDAPI"),"_ver[0]*([0-9-A-F]*)_").Groups[1].Value
-
-if ($RunningMicrocodeHEX -eq $CPUMCAPIVersion) { $CPUMCColor = "green" }
-else { $CPUMCColor = "red" }
-
 # Output the CPU Microcode currently running on the system
-Write-Host -ForegroundColor $CPUMCColor "$('Running microcode revision'.PadRight(29)): 0x$RunningMicrocodeHEX $MicrocodeLoader"
+Write-Output "$('Running microcode revision'.PadRight(29)): 0x$RunningMicrocodeHEX $MicrocodeLoader"
 
 # Output the CPU microcode provided by the Manufacturer with a BIOS/UEFI update
 if ($Disclaimer) { Write-Output "$(($FirmwareType.Substring($FirmwareType.Length-4,4) + " CPU microcode revision*").PadRight(29)): 0x$BIOSMicrocodeHEX" }
 else { Write-Output "$(($FirmwareType.Substring($FirmwareType.Length-4,4) + " CPU microcode revision").PadRight(29)): 0x$BIOSMicrocodeHEX" }
-
-# Show latest microcode version if there's a newer version available
-if ($RunningMicrocodeHEX -ne $CPUMCAPIVersion) {
-    $FormatedDate = (Get-Date "$CPUMCAPIDate" -UFormat "%d.%m.%Y")
-    Write-Host -ForegroundColor yellow `
-    "$(($FirmwareType.Substring($FirmwareType.Length-4,4) + " CPU microcode latest").PadRight(29)): 0x$CPUMCAPIVersion ($FormatedDate)"
-}
 
 $BIOSAge = ((Get-Date) - $BIOSUpdateDate).Days
 $FirmwareOutput1 = "Boot Mode".PadRight(29) + ": " + $FirmwareType
@@ -543,7 +478,3 @@ Remove-Variable CPU_Type, CPU_Architecture, CPU_Family, CPU_UpgradeMethod, PCMod
                 BIOSMicrocode, BIOSMicrocodeHEX, BIOSInfo, BIOSAge, BIOSUpdateDate, OSMicrocodeUpdateDate,
                 OS, MicrocodeLoader, Disclaimer, DisclaimerText, FirmwareOutput1, FirmwareOutput2,
                 FirmwareOutput3, FirmwareOutput4, FirmwareOutput5 -ErrorAction SilentlyContinue
-
-# Pause
-Write-Host -ForegroundColor DarkGreen "`n`nScript done! Type any key to close the window.."
-[void][System.Console]::ReadKey($FALSE)
