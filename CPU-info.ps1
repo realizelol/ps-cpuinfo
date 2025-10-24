@@ -1,6 +1,7 @@
 # Script to get CPU information
-# (c) 2018-2020. Dimitri Delopoulos
-# v2.5.1, 06/26/2020
+# (c) 2018-2022. Dimitri Delopoulos
+# v2.6, 26/01/2022 
+# v2.6.1, 10/24/2025 modified by realizelol
 #
 # https://www.tenforums.com/drivers-hardware/106331-powershell-script-cpu-information-incl-cpuid.html
 
@@ -44,17 +45,26 @@ Version 2.5 (03-Mar-2020)
 2. Fixed microcode loader and disclaimer presentation algorithm.
 3. Fixed output of firmware data.
 
-Version 2.5.1 (26-Jun-2020)
+Version 2.5.1 (04-Mar-2020)
+Fixed an issue of microcode revision in AMD systems and/or Windows 7
+
+Version 2.5.2 (26-Jun-2020)
 1. Added current bios version check via github api.
 2. Added support for Windows 7/2008 R2.
 3. Trim zeros at CPUID so you'll get the real CPUID.
 4. Color current BIOS microcode state (green = newest / red = old one).
 5. Add pause to end of script.
 6. Added tenforums link to script.
+7. Fix apostroph in DATA type also some double quotes
+8. Add special symbol for copyright mark in version info
 
-Version 2.5.2 (26-Jun-2020)
-1. Fix apostroph in DATA type also some double quotes
-2. Add special symbol for copyright mark in version info
+Version 2.6 (26-Jan-2022)
+1. Verified compatibility to Windows 11
+2. Updated CPU Family and Upgrade Method lists from the latest (v.2.53.0) DMTF schema
+
+Version 2.6.1 (24-Oct-2025)
+1. Just merged the previous 2.5.2 stuff with 2.6.
+
 #>
 
 # 'ProcessorType' value from: https://docs.microsoft.com/en-us/windows/desktop/CIMWin32Prov/win32-processor
@@ -80,7 +90,7 @@ $CPU_Architecture = DATA {ConvertFrom-StringData -StringData @'
 9 = x64
 '@}
 
-# 'Family' value from: http://schemas.dmtf.org/wbem/cim-html/2.51.0/CIM_ArchitectureCheck.html
+# 'Family' value from: http://schemas.dmtf.org/wbem/cim-html/2.53.0/CIM_ArchitectureCheck.html
 
 $CPU_Family = DATA {ConvertFrom-StringData -StringData @'
 1 = Other
@@ -297,11 +307,14 @@ $CPU_Family = DATA {ConvertFrom-StringData -StringData @'
 320 = WinChip
 350 = DSP
 500 = Video Processor
+512 = RISC-V RV32
+513 = RISC-V RV64
+514 = RISC-V RV128
 65534 = Reserved (For Future Special Purpose Assignment)
 65535 = Reserved (Un-initialized Flash Content - Hi)
 '@}
 
-# 'UpgradeMethod' value from: http://schemas.dmtf.org/wbem/cim-html/2.51.0/CIM_Processor.html
+# 'UpgradeMethod' value from: http://schemas.dmtf.org/wbem/cim-html/2.53.0/CIM_Processor.html
 
 $CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @'
 1 = Other
@@ -366,7 +379,7 @@ $CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @'
 60 = Socket BGA1528
 '@}
 
-Write-Output "`nCPU-info [Version 2.5.2] $([char]169) 2020 Dimitri Delopoulos - modded by realizelol"
+Write-Output "`nCPU-info [Version 2.6.1] $([char]169) 2022 Dimitri Delopoulos - modded by realizelol @ 2025"
 
 # Change registry value if Windows is version 6.1 aka Windows 7
 # and Powershell Update info if version is 2.0 (default)
@@ -374,7 +387,7 @@ if ([System.Environment]::OSVersion.Version.Major -eq 6 -And [System.Environment
     $UpdateInfo = "Update Signature"
     $PrevUpdateInfo = "Previous Update Signature"
 
-    # We need atleast PowerShell 3.0
+    # We need at least PowerShell 3.0
     if ((Get-Host).Version.Major -eq 2) {
         # https://www.microsoft.com/en-us/download/details.aspx?id=54616
         if ((Get-WmiObject Win32_OperatingSystem).OSArchitecture -eq "64-bit"){
@@ -400,7 +413,7 @@ if ([System.Environment]::OSVersion.Version.Major -eq 6 -And [System.Environment
     if ([System.Environment]::OSVersion.Version.Major -lt 6 `
         -Or ([System.Environment]::OSVersion.Version.Major -eq 6 -And [System.Environment]::OSVersion.Version.Minor -eq 0)) {
             Write-Output "`nSorry your Windows Version is not supported!"
-            Write-Output "You need atleast Windows 7 or Windows Server 2008 R2`n"
+            Write-Output "You need at least Windows 7 or Windows Server 2008 R2`n"
             exit
     }
 }
@@ -446,8 +459,9 @@ $CPUInfo = [PSCustomObject]@{
 
 $CPUInfo
 
-# Find the system's firmware type - Method 1 not possible with Win7
-if ($env:Firmware_Type -eq "UEFI") { $FirmwareType = "UEFI" }
+# Find the system's firmware type
+$bcdeditOutput = & "$env:windir\System32\bcdedit.exe"
+if ($bcdeditOutput -like "*winload.efi*") { $FirmwareType = "UEFI" }
 else { $FirmwareType = "Legacy BIOS" }
 
 # Find the system's firmware type - Method 2
