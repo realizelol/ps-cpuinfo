@@ -1,8 +1,8 @@
 # Script to get CPU information
 # (c) 2019. Dimitri Delopoulos
-# v2.5, 03/03/2020
+# v2.6, 26/01/2022 
 
-<####### Release history #######
+<########## Release history ##########
 Version 1.0 (19-Mar-2018)
 Initial release
 
@@ -16,21 +16,21 @@ Version 2.0 (15-Feb-2019)
     - BIOS/UEFI CPU microcode revision *** Removed in Version 2.2 ***
 3. Added check for microcode revision and outputs if the microcode is loaded by the current OS or BIOS/UEFI. *** Removed in Version 2.2 ***
 4. Added check for boot mode (Legacy BIOS or UEFI)
-5. Added BIOS/UEFI information
+5. Added BIOS/UEFI information 
 
-Version 2.1 (06-Mar-2019)
+Version 2.1 (06-Mar-2019) 
 1. Added Computer model
 2. Added DisplayFamily and DisplayModel signatures, to accomodate verification of Retpoline mitigation
 3. Fixed bug, on Legacy BIOS systems
 
-Version 2.2 (25-Mar-2019)
-To avoid misconceptions and unreliable/confusing results in some devices and since there is no accurate process, to get via PowerShell, the BIOS/UEFI firmware
+Version 2.2 (25-Mar-2019) 
+To avoid misconceptions and unreliable/confusing results in some devices and since there is no accurate process, to get via PowerShell, the BIOS/UEFI firmware 
 microcode revision, the script will only output the currently Running microcode revision, which is loaded at boot time, either by BIOS/UEFI or by Windows 10.
 
-Version 2.3 (29-May-2019)
+Version 2.3 (29-May-2019) 
 Fixed a bug, which was causing microcode revision to be read incorrectly.
 
-Version 2.4 (06-Jun-2019)
+Version 2.4 (06-Jun-2019) 
 1. Changed the way "Display Family", "Display Model" and "Stepping' are read, based on Intel and AMD CPUID algorithm (0FFM0FMS).
    (F+F+F to HEX, to accomodate AMD "Display Family" notation)
 2. Fixed a bug, which was causing AMD processors "Display Family" to be read incorrectly.
@@ -41,6 +41,14 @@ Version 2.5 (03-Mar-2020)
 1. Fixed an issue with the detection of firmware type (BIOS/UEFI). Thanks to Mike (mta3006) for his help.
 2. Fixed microcode loader and disclaimer presentation algorithm.
 3. Fixed output of firmware data.
+
+Version 2.5.1 (04-Mar-2020)
+Fixed an issue of microcode revision in AMD systems and/or Windows 7
+
+Version 2.6 (26-Jan-2022)
+1. Verified compatibility to Windows 11
+2. Updated CPU Family and Upgrade Method lists from the latest (v.2.53.0) DMTF schema
+
 #>
 
 # 'ProcessorType' value from: https://docs.microsoft.com/en-us/windows/desktop/CIMWin32Prov/win32-processor
@@ -66,7 +74,7 @@ $CPU_Architecture = DATA {ConvertFrom-StringData -StringData @’
 9 = x64
 ‘@}
 
-# 'Family' value from: http://schemas.dmtf.org/wbem/cim-html/2.51.0/CIM_ArchitectureCheck.html
+# 'Family' value from: http://schemas.dmtf.org/wbem/cim-html/2.53.0/CIM_ArchitectureCheck.html
 
 $CPU_Family = DATA {ConvertFrom-StringData -StringData @’
 1 = Other
@@ -283,11 +291,14 @@ $CPU_Family = DATA {ConvertFrom-StringData -StringData @’
 320 = WinChip
 350 = DSP
 500 = Video Processor
+512 = RISC-V RV32
+513 = RISC-V RV64
+514 = RISC-V RV128
 65534 = Reserved (For Future Special Purpose Assignment)
 65535 = Reserved (Un-initialized Flash Content - Hi)
 ‘@}
 
-# 'UpgradeMethod' value from: http://schemas.dmtf.org/wbem/cim-html/2.51.0/CIM_Processor.html
+# 'UpgradeMethod' value from: http://schemas.dmtf.org/wbem/cim-html/2.53.0/CIM_Processor.html
 
 $CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @’
 1 = Other
@@ -352,22 +363,22 @@ $CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @’
 60 = Socket BGA1528
 ‘@}
 
-Write-Output "`nCPU-info [Version 2.5] © 2020 Dimitri Delopoulos"
+Write-Output "`nCPU-info [Version 2.6] © 2022 Dimitri Delopoulos"
 
 $PCModel = (Get-CimInstance -Class Win32_ComputerSystem).Model
 
-$CIMCPU = Get-CimInstance -Class CIM_Processor | Select-Object SystemName, Manufacturer, Name,
-Description, NumberOfCores, NumberOfLogicalProcessors, CurrentClockSpeed, SocketDesignation,
-@{L=”ProcessorType”;E={$CPU_Type["$($_.ProcessorType)"]}},
-@{L=”CPUFamily”;E={$CPU_Family["$($_.Family)"]}},
+$CIMCPU = Get-CimInstance -Class CIM_Processor | Select-Object SystemName, Manufacturer, Name, 
+Description, NumberOfCores, NumberOfLogicalProcessors, CurrentClockSpeed, SocketDesignation, 
+@{L=”ProcessorType”;E={$CPU_Type["$($_.ProcessorType)"]}}, 
+@{L=”CPUFamily”;E={$CPU_Family["$($_.Family)"]}}, 
 @{L=”CPUArchitecture”;E={$CPU_Architecture["$($_.Architecture)"]}},
 @{L=”UpgradeMethod”;E={$CPU_UpgradeMethod["$($_.UpgradeMethod)"]}},
 @{L="CPUID"; E={$_.ProcessorID.substring(8,8)}},
-@{L="DisplayFamily"; E={([String]::Format("{0:x2}", ([Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(1,1),16) +
-                                                     [Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(2,1),16) +
+@{L="DisplayFamily"; E={([String]::Format("{0:x2}", ([Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(1,1),16) + 
+                                                     [Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(2,1),16) + 
                                                      [Convert]::ToInt64(($_.ProcessorID.substring(8,8)).Substring(5,1),16)))).ToUpper()}}, ### 0FFM0FMS (F+F+F)
 
-@{L="DisplayModel";  E={($_.ProcessorID.substring(8,8)).Substring(3,1), ($_.ProcessorID.substring(8,8)).Substring(6,1) -join ''}},         ### 0FFM0FMS
+@{L="DisplayModel";  E={($_.ProcessorID.substring(8,8)).Substring(3,1), ($_.ProcessorID.substring(8,8)).Substring(6,1) -join ''}},         ### 0FFM0FMS 
 @{L="Stepping";      E={($_.ProcessorID.substring(8,8)).Substring(7,1)}}                                                                   ### 0FFM0FMS
 
 $CPUInfo = [PSCustomObject]@{
@@ -418,17 +429,17 @@ $BIOSInfo = Get-CimInstance Win32_BIOS | select Name, Manufacturer, SerialNumber
 # Decide if the the currently running microcode is loaded by the OS or by the firmware
 $OS = (Get-CimInstance Win32_OperatingSystem).Caption
 $BIOSUpdateDate = $BIOSInfo.ReleaseDate
-if ($CIMCPU.Name -like "*Intel*") {
+if ($CIMCPU.Name -like "*Intel*") { 
     $OSMicrocodeUpdateDate = (Get-ChildItem $env:windir\System32\mcupdate_GenuineIntel.dll).LastWriteTime
 }
-else {
+else { 
     $OSMicrocodeUpdateDate = (Get-ChildItem $env:windir\System32\mcupdate_AuthenticAMD.dll).LastWriteTime
 }
 
 $MicrocodeLoader = "(loaded by $OS)"
 $Disclaimer = $false
-if ($RunningMicrocodeHEX -eq $BIOSMicrocodeHEX) {
-    if ($BIOSUpdateDate -gt (Get-Date "2018-01-01")) {
+if ($RunningMicrocodeHEX -eq $BIOSMicrocodeHEX) { 
+    if ($BIOSUpdateDate -gt (Get-Date "2018-01-01")) { 
         $MicrocodeLoader = "(loaded by $FirmwareType)"
     }
     else {
@@ -461,20 +472,13 @@ $FirmwareOutput3
 $FirmwareOutput4
 $FirmwareOutput5
 
-$DisclaimerText = "* DISCLAIMER:
-  The $($FirmwareType.Substring($FirmwareType.Length-4,4)) CPU microcode revision shown, is the value retrieved from the
-  system's Registry, FOR INFORMATIONAL PURPOSES ONLY.
-  The actual $($FirmwareType.Substring($FirmwareType.Length-4,4)) microcode revision is stored in the firmware's MSR, at
-  address 08BH (IA32_BIOS_SIGN_ID). The RDMSR command, needed to read the
-  actual value from the EDX register, cannot be run from within Windows.
-  So if, for any reason, the Registry value has been set incorrectly, the
+$DisclaimerText = "* DISCLAIMER: 
+  The $($FirmwareType.Substring($FirmwareType.Length-4,4)) CPU microcode revision shown, is the value retrieved from the 
+  system's Registry, FOR INFORMATIONAL PURPOSES ONLY. 
+  The actual $($FirmwareType.Substring($FirmwareType.Length-4,4)) microcode revision is stored in the firmware's MSR, at 
+  address 08BH (IA32_BIOS_SIGN_ID). The RDMSR command, needed to read the 
+  actual value from the EDX register, cannot be run from within Windows. 
+  So if, for any reason, the Registry value has been set incorrectly, the 
   shown firmware microcode revision will be different from the actual one."
 
 if ($Disclaimer) { Write-Output ("-" * 74)"$DisclaimerText" }
-
-# Cleanup
-Remove-Variable CPU_Type, CPU_Architecture, CPU_Family, CPU_UpgradeMethod, PCModel, CIMCPU, CPUInfo,
-                bcdeditOutput, FirmwareType, CPURegistryPath, RunningMicrocode, RunningMicrocodeHEX,
-                BIOSMicrocode, BIOSMicrocodeHEX, BIOSInfo, BIOSAge, BIOSUpdateDate, OSMicrocodeUpdateDate,
-                OS, MicrocodeLoader, Disclaimer, DisclaimerText, FirmwareOutput1, FirmwareOutput2,
-                FirmwareOutput3, FirmwareOutput4, FirmwareOutput5 -ErrorAction SilentlyContinue
