@@ -1,7 +1,7 @@
 # Script to get CPU information
 # (c) 2018-2022. Dimitri Delopoulos
-# v2.6, 26/01/2022 
-# v2.6.1, 10/24/2025 modified by realizelol
+# v2.6, 26/01/2022
+# v2.6.2, 10/26/2025 modified by realizelol
 #
 # https://www.tenforums.com/drivers-hardware/106331-powershell-script-cpu-information-incl-cpuid.html
 
@@ -64,6 +64,10 @@ Version 2.6 (26-Jan-2022)
 
 Version 2.6.1 (24-Oct-2025)
 1. Just merged the previous 2.5.2 stuff with 2.6.
+
+Version 2.6.2 (26-Oct-2025)
+1. Fix UEFI/Legacy Output
+2. bcdedit needs administrative privileges
 
 #>
 
@@ -379,7 +383,7 @@ $CPU_UpgradeMethod = DATA {ConvertFrom-StringData -StringData @'
 60 = Socket BGA1528
 '@}
 
-Write-Output "`nCPU-info [Version 2.6.1] $([char]169) 2022 Dimitri Delopoulos - modded by realizelol @ 2025"
+Write-Output "`nCPU-info [Version 2.6.2] $([char]169) 2022 Dimitri Delopoulos - modded by realizelol @ 2025"
 
 # Change registry value if Windows is version 6.1 aka Windows 7
 # and Powershell Update info if version is 2.0 (default)
@@ -460,15 +464,27 @@ $CPUInfo = [PSCustomObject]@{
 $CPUInfo
 
 # Find the system's firmware type
-$bcdeditOutput = & "$env:windir\System32\bcdedit.exe"
-if ($bcdeditOutput -like "*winload.efi*") { $FirmwareType = "UEFI" }
-else { $FirmwareType = "Legacy BIOS" }
+if ($env:Firmware_Type -eq "UEFI") { $FirmwareType = "UEFI" }
+if ($env:Firmware_Type -eq "Legacy") { $FirmwareType = "Legacy" }
 
 # Find the system's firmware type - Method 2
 if (!($FirmwareType)) {
-    $bcdeditOutput = & "$env:windir\System32\bcdedit.exe"
-    if ($bcdeditOutput -like "*winload.efi") { $FirmwareType = "UEFI" }
-    else { $FirmwareType = "Legacy BIOS" }
+    If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
+    {
+      $tempFile = Join-Path -Path $([System.IO.Path]::GetTempPath()) -ChildPath "output.txt"
+      $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c bcdedit /enum > `"$tempFile`"" -Verb RunAs -PassThru
+      $process.WaitForExit()
+      $bcdeditOutput = Get-Content -Path $tempFile
+      Remove-Item -Path $tempFile -Force
+    }
+    if ($bcdeditOutput -match '\\WINDOWS\\system32\\winload.efi') {
+        $FirmwareType = "UEFI"
+    } elseif ($bcdeditOutput -match '\\WINDOWS\\system32\\winload.exe') {
+        $FirmwareType = "Legacy"
+    } else {
+        Write-Host -ForeGroundColor DarkRed "Bootmode couldn't be determined."
+        $FirmwareType = "Unknown"
+    }
 }
 
 # Find the currently running CPU microcode revision
